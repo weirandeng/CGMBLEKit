@@ -88,17 +88,17 @@ class BluetoothManager: NSObject {
 
     // MARK: - GCD Management
 
-    private let managerQueue = DispatchQueue(label: "com.loudnate.xDripG5.bluetoothManagerQueue", qos: .utility)
+    private let managerQueue = DispatchQueue(label: "com.loudnate.CGMBLEKit.bluetoothManagerQueue", qos: .utility)
 
     override init() {
         super.init()
 
-        manager = CBCentralManager(delegate: self, queue: managerQueue, options: [CBCentralManagerOptionRestoreIdentifierKey: "com.loudnate.xDripG5"])
+        manager = CBCentralManager(delegate: self, queue: managerQueue, options: [CBCentralManagerOptionRestoreIdentifierKey: "com.loudnate.CGMBLEKit"])
     }
 
     // MARK: - Actions
 
-    func scanForPeripheral(after delay: TimeInterval = 0) {
+    func scanForPeripheral() {
         guard manager.state == .poweredOn else {
             return
         }
@@ -108,24 +108,19 @@ class BluetoothManager: NSObject {
             return
         }
 
-        var connectOptions: [String: Any] = [:]
-        if #available(iOS 11.2, watchOS 4.1, *), delay > 0 {
-            connectOptions[CBConnectPeripheralOptionStartDelayKey] = delay
-        }
-
         if let peripheralID = self.peripheral?.identifier, let peripheral = manager.retrievePeripherals(withIdentifiers: [peripheralID]).first {
-            log.info("Re-connecting to known peripheral %{public}@ in %.1fs", peripheral.identifier.uuidString, delay)
+            log.debug("Re-connecting to known peripheral %{public}@", peripheral.identifier.uuidString)
             self.peripheral = peripheral
-            self.manager.connect(peripheral, options: connectOptions)
+            self.manager.connect(peripheral)
         } else if let peripheral = manager.retrieveConnectedPeripherals(withServices: [
                 TransmitterServiceUUID.advertisement.cbUUID,
                 TransmitterServiceUUID.cgmService.cbUUID
             ]).first, delegate == nil || delegate!.bluetoothManager(self, shouldConnectPeripheral: peripheral) {
-            log.info("Found system-connected peripheral: %{public}@", peripheral.identifier.uuidString)
+            log.debug("Found system-connected peripheral: %{public}@", peripheral.identifier.uuidString)
             self.peripheral = peripheral
-            self.manager.connect(peripheral, options: connectOptions)
+            self.manager.connect(peripheral)
         } else {
-            log.info("Scanning for peripherals")
+            log.debug("Scanning for peripherals")
             manager.scanForPeripherals(withServices: [
                     TransmitterServiceUUID.advertisement.cbUUID
                 ],
@@ -153,14 +148,10 @@ class BluetoothManager: NSObject {
 
      */
     fileprivate func scanAfterDelay() {
-        if #available(iOS 11.2, watchOS 4.1, *) {
-            self.scanForPeripheral(after: TimeInterval(60 * 3))
-        } else {
-            DispatchQueue.global(qos: DispatchQoS.QoSClass.utility).async {
-                Thread.sleep(forTimeInterval: 2)
+        DispatchQueue.global(qos: DispatchQoS.QoSClass.utility).async {
+            Thread.sleep(forTimeInterval: 2)
 
-                self.scanForPeripheral()
-            }
+            self.scanForPeripheral()
         }
     }
 
