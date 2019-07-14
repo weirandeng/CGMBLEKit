@@ -149,9 +149,9 @@ public final class Transmitter: BluetoothManagerDelegate {
 
         peripheralManager.perform { (peripheral) in
             if self.passiveModeEnabled {
-                self.log.debug("Listening for control commands in passive mode")
+                self.log.debug("Listening for authentication responses in passive mode")
                 do {
-                    try peripheral.listenToControl()
+                    try peripheral.listenToCharacteristic(.authentication)
                 } catch let error {
                     self.delegateQueue.async {
                         self.delegate?.transmitter(self, didError: error)
@@ -319,6 +319,28 @@ public final class Transmitter: BluetoothManagerDelegate {
 
         self.backfillBuffer?.append(response)
     }
+
+    func bluetoothManager(_ manager: BluetoothManager, peripheralManager: PeripheralManager, didReceiveAuthenticationResponse response: Data) {
+
+        if response[0] == 0x05, let message = AuthChallengeRxMessage(data: response), message.bonded != 0, message.authenticated != 0 {
+            self.log.debug("Observed authenticated session. enabling notifications for control characteristic.")
+            peripheralManager.perform { (peripheral) in
+                do {
+                    try peripheral.listenToCharacteristic(.control)
+                    try peripheral.listenToCharacteristic(.backfill)
+                } catch let error {
+                    self.log.error("Error trying to enable notifications on control characteristic: %{public}@", String(describing: error))
+                }
+                do {
+                    try peripheral.stopListeningToCharacteristic(.authentication)
+                } catch let error {
+                    self.log.error("Error trying to disable notifications on authentication characteristic: %{public}@", String(describing: error))
+                }
+            }
+        } else {
+            self.log.debug("Ignoring authentication response:  %{public}@", response.hexadecimalString)
+        }
+    }
 }
 
 
@@ -478,12 +500,19 @@ fileprivate extension PeripheralManager {
         }
     }
 
-    func listenToControl() throws {
+    func listenToCharacteristic(_ characteristic: CGMServiceCharacteristicUUID) throws {
         do {
-            try setNotifyValue(true, for: .control)
-            try setNotifyValue(true, for: .backfill)
+            try setNotifyValue(true, for: characteristic)
         } catch let error {
-            throw TransmitterError.controlError("Error enabling notification: \(error)")
+            throw TransmitterError.controlError("Error enabling notification for \(characteristic): \(error)")
+        }
+    }
+
+    func stopListeningToCharacteristic(_ characteristic: CGMServiceCharacteristicUUID) throws {
+        do {
+            try setNotifyValue(false, for: characteristic)
+        } catch let error {
+            throw TransmitterError.controlError("Error disabling notification for \(characteristic): \(error)")
         }
     }
 }

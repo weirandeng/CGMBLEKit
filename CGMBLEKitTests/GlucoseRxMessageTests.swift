@@ -76,4 +76,17 @@ class GlucoseRxMessageTests: XCTestCase {
         XCTAssertEqual(6, message.glucose.state)
         XCTAssertEqual(-10, message.glucose.trend)
     }
+
+    func testNewG6() {
+        let data = Data(hexadecimalString: "4f00e7000000291001007f0006f46e00a5dc")!
+        let message = GlucoseRxMessage(data: data)!
+
+        XCTAssertEqual(0, message.status)
+        XCTAssertEqual(24, message.sequence)
+        XCTAssertEqual(72673, message.glucose.timestamp)
+        XCTAssertFalse(message.glucose.glucoseIsDisplayOnly)
+        XCTAssertEqual(117, message.glucose.glucose)
+        XCTAssertEqual(6, message.glucose.state)
+        XCTAssertEqual(-1, message.glucose.trend)
+    }
 }
