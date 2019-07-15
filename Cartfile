@@ -1,2 +1,2 @@
-github "LoopKit/LoopKit" "omnipod-testing"
-github "LoopKit/dexcom-share-client-swift" "omnipod-testing"
+github "kdisimone/LoopKit" "jojo"
+github "kdisimone/dexcom-share-client-swift" "jojo"
